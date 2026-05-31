@@ -1,70 +1,245 @@
-const request = require("supertest");
-const app = require("../src/app");
+const request = require('supertest');
 
-describe("Auth Service API", () => {
-  test("GET / should return service running message", async () => {
-    const response = await request(app).get("/");
+process.env.JWT_SECRET = 'test-secret-for-auth-service';
+process.env.JWT_EXPIRES_IN = '1h';
+
+const app = require('../src/app');
+
+function uniqueEmail(label) {
+  return `${label}-${Date.now()}-${Math.random()}@example.com`;
+}
+
+describe('Auth Service API', () => {
+  test('GET / should return service running message', async () => {
+    const response = await request(app).get('/');
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.message).toBe("CloudGuard AI Auth Service is running");
+    expect(response.body.message).toBe('CloudGuard AI Auth Service is running');
   });
 
-  test("GET /health should return service health", async () => {
-    const response = await request(app).get("/health");
+  test('GET /health should return service health', async () => {
+    const response = await request(app).get('/health');
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.status).toBe("healthy");
-    expect(response.body.service).toBe("auth-service");
+    expect(response.body.status).toBe('healthy');
+    expect(response.body.service).toBe('auth-service');
   });
 
-  test("POST /register should register a user without returning password", async () => {
-    const response = await request(app).post("/register").send({
-      name: "Test User",
-      email: "test@example.com",
-      password: "password123",
+  test('GET /api-docs should make Swagger UI available', async () => {
+    const response = await request(app).get('/api-docs');
+
+    expect([200, 301, 302]).toContain(response.statusCode);
+  });
+
+  test('POST /register should register a valid user', async () => {
+    const email = uniqueEmail('register');
+
+    const response = await request(app).post('/register').send({
+      name: 'Test User',
+      email,
+      password: 'password123',
     });
 
     expect(response.statusCode).toBe(201);
-    expect(response.body.message).toBe("User registered successfully");
+    expect(response.body.message).toBe('User registered successfully');
     expect(response.body.user).toEqual({
-      id: 1,
-      name: "Test User",
-      email: "test@example.com",
+      id: expect.any(Number),
+      name: 'Test User',
+      email,
     });
-    expect(response.body.user.password).toBeUndefined();
   });
 
-  test("POST /login should login successfully after registering a user", async () => {
-    await request(app).post("/register").send({
-      name: "Login User",
-      email: "login@example.com",
-      password: "password123",
+  test('POST /register should not return password', async () => {
+    const email = uniqueEmail('no-password');
+
+    const response = await request(app).post('/register').send({
+      name: 'Private User',
+      email,
+      password: 'password123',
     });
 
-    const response = await request(app).post("/login").send({
-      email: "login@example.com",
-      password: "password123",
+    expect(response.statusCode).toBe(201);
+    expect(response.body.user.password).toBeUndefined();
+    expect(response.body.user.passwordHash).toBeUndefined();
+  });
+
+  test('POST /register should fail if name is missing', async () => {
+    const response = await request(app)
+      .post('/register')
+      .send({
+        email: uniqueEmail('missing-name'),
+        password: 'password123',
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toBe('Validation failed');
+    expect(response.body.errors).toContain('Name is required');
+  });
+
+  test('POST /register should fail if email is invalid', async () => {
+    const response = await request(app).post('/register').send({
+      name: 'Invalid Email User',
+      email: 'invalid-email',
+      password: 'password123',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toBe('Validation failed');
+    expect(response.body.errors).toContain('Email must be valid');
+  });
+
+  test('POST /register should fail if password is shorter than 8 characters', async () => {
+    const response = await request(app)
+      .post('/register')
+      .send({
+        name: 'Short Password User',
+        email: uniqueEmail('short-password'),
+        password: 'short',
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toBe('Validation failed');
+    expect(response.body.errors).toContain('Password must be at least 8 characters');
+  });
+
+  test('POST /register should fail for duplicate email', async () => {
+    const email = uniqueEmail('duplicate');
+
+    await request(app).post('/register').send({
+      name: 'First User',
+      email,
+      password: 'password123',
+    });
+
+    const response = await request(app).post('/register').send({
+      name: 'Second User',
+      email,
+      password: 'password123',
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body.message).toBe('User already exists');
+  });
+
+  test('POST /login should return a real token for correct email and password', async () => {
+    const email = uniqueEmail('login');
+
+    await request(app).post('/register').send({
+      name: 'Login User',
+      email,
+      password: 'password123',
+    });
+
+    const response = await request(app).post('/login').send({
+      email,
+      password: 'password123',
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.message).toBe("Login successful");
-    expect(response.body.token).toBe("fake-jwt-token-for-learning");
+    expect(response.body.message).toBe('Login successful');
+    expect(typeof response.body.token).toBe('string');
+    expect(response.body.token.length).toBeGreaterThan(0);
+    expect(response.body.token).not.toBe('fake-jwt-token-for-learning');
   });
 
-  test("POST /login should fail with wrong password", async () => {
-    await request(app).post("/register").send({
-      name: "Wrong Password User",
-      email: "wrong-password@example.com",
-      password: "password123",
+  test('POST /login should fail with wrong password', async () => {
+    const email = uniqueEmail('wrong-password');
+
+    await request(app).post('/register').send({
+      name: 'Wrong Password User',
+      email,
+      password: 'password123',
     });
 
-    const response = await request(app).post("/login").send({
-      email: "wrong-password@example.com",
-      password: "wrong-password",
+    const response = await request(app).post('/login').send({
+      email,
+      password: 'wrong-password',
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.body.message).toBe("Invalid email or password");
+    expect(response.body.message).toBe('Invalid email or password');
+  });
+
+  test('POST /login should fail when email is missing', async () => {
+    const response = await request(app).post('/login').send({
+      password: 'password123',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toBe('Validation failed');
+    expect(response.body.errors).toContain('Email is required');
+  });
+
+  test('GET /profile should succeed when valid Bearer token is provided', async () => {
+    const email = uniqueEmail('profile');
+
+    await request(app).post('/register').send({
+      name: 'Profile User',
+      email,
+      password: 'password123',
+    });
+
+    const loginResponse = await request(app).post('/login').send({
+      email,
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .get('/profile')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.message).toBe('Profile fetched successfully');
+    expect(response.body.user).toEqual({
+      id: expect.any(Number),
+      name: 'Profile User',
+      email,
+    });
+  });
+
+  test('GET /profile should fail when token is missing', async () => {
+    const response = await request(app).get('/profile');
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body.message).toBe('Authentication token is required');
+  });
+
+  test('GET /profile should fail when token is invalid', async () => {
+    const response = await request(app)
+      .get('/profile')
+      .set('Authorization', 'Bearer invalid-token');
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body.message).toBe('Invalid or expired token');
+  });
+
+  test('GET /profile should never return password or passwordHash', async () => {
+    const email = uniqueEmail('profile-private');
+
+    await request(app).post('/register').send({
+      name: 'Private Profile User',
+      email,
+      password: 'password123',
+    });
+
+    const loginResponse = await request(app).post('/login').send({
+      email,
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .get('/profile')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.user.password).toBeUndefined();
+    expect(response.body.user.passwordHash).toBeUndefined();
+  });
+
+  test('unknown route should return 404', async () => {
+    const response = await request(app).get('/unknown-route');
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body.message).toBe('Route not found');
   });
 });
-
