@@ -1,16 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { authenticate } = require('../middleware/auth.middleware');
+const prisma = require('../config/prisma');
 const { generateToken } = require('../utils/token');
 const { validateRegisterInput, validateLoginInput } = require('../utils/validation');
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
-
-// Temporary in-memory user storage.
-// Important: This data disappears when the server restarts.
-// A real database will be added in a later phase.
-const users = [];
 
 /**
  * @openapi
@@ -101,25 +97,26 @@ router.post('/register', async (req, res, next) => {
     });
   }
 
-  const existingUser = users.find((user) => user.email === email);
-
-  if (existingUser) {
-    return res.status(409).json({
-      message: 'User already exists',
-    });
-  }
-
   try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: 'User already exists',
+      });
+    }
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const newUser = {
-      id: users.length + 1,
-      name,
-      email,
-      passwordHash,
-    };
-
-    users.push(newUser);
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+      },
+    });
 
     // Never return the password or password hash in an API response.
     return res.status(201).json({
@@ -177,15 +174,17 @@ router.post('/login', async (req, res, next) => {
     });
   }
 
-  const user = users.find((storedUser) => storedUser.email === email);
-
-  if (!user) {
-    return res.status(401).json({
-      message: 'Invalid email or password',
-    });
-  }
-
   try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'Invalid email or password',
+      });
+    }
+
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatches) {

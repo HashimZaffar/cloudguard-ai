@@ -51,3 +51,52 @@ Phase 1 project initialization.
 
 The base folder structure and starter documentation are now in place. Application code will be added in later phases.
 
+## Run auth-service with Docker Compose
+
+Docker Compose lets you run one or more containers from a single YAML file. It is useful for local development because you can start services with one command instead of typing long `docker run` commands.
+
+Plain `docker run` starts one container from command-line options. Docker Compose stores those options in a reusable file, which becomes much easier once PostgreSQL, Redis, and other services are added.
+
+This Compose setup currently runs `auth-service` and PostgreSQL. Redis will be added later.
+
+Create the auth-service `.env` file if it is missing:
+
+```bash
+cp apps/auth-service/.env.example apps/auth-service/.env
+```
+
+Start auth-service:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up --build
+```
+
+Run in detached mode:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up -d --build
+```
+
+Check running containers:
+
+```bash
+docker ps
+```
+
+Test the health endpoint:
+
+```bash
+curl http://localhost:5001/health
+```
+
+View logs:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml logs -f auth-service
+```
+
+Stop the service:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml down
+```

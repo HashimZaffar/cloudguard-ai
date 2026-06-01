@@ -2,14 +2,30 @@ const request = require('supertest');
 
 process.env.JWT_SECRET = 'test-secret-for-auth-service';
 process.env.JWT_EXPIRES_IN = '1h';
+process.env.DATABASE_URL =
+  'postgresql://cloudguard_user:cloudguard_password@localhost:5432/cloudguard_auth_test_db?schema=public';
 
 const app = require('../src/app');
+const prisma = require('../src/config/prisma');
 
 function uniqueEmail(label) {
   return `${label}-${Date.now()}-${Math.random()}@example.com`;
 }
 
 describe('Auth Service API', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+
+  beforeEach(async () => {
+    await prisma.user.deleteMany();
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany();
+    await prisma.$disconnect();
+  });
+
   test('GET / should return service running message', async () => {
     const response = await request(app).get('/');
 

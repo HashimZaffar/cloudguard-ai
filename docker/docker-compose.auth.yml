@@ -1,0 +1,60 @@
+name: cloudguard-ai
+
+services:
+  postgres:
+    container_name: cloudguard-auth-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cloudguard_user
+      POSTGRES_PASSWORD: cloudguard_password
+      POSTGRES_DB: cloudguard_auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - cloudguard-auth-postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudguard_user -d cloudguard_auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloudguard-network
+
+  auth-service:
+    container_name: cloudguard-auth-service
+    image: cloudguard-auth-service:1.0.0
+    build:
+      context: ../apps/auth-service
+    ports:
+      - "5001:5001"
+    env_file:
+      - ../apps/auth-service/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://cloudguard_user:cloudguard_password@postgres:5432/cloudguard_auth_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:5001/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - cloudguard-network
+
+networks:
+  cloudguard-network:
+    name: cloudguard-network
+
+volumes:
+  cloudguard-auth-postgres-data:

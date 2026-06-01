@@ -32,6 +32,9 @@ apps/auth-service/
 │       ├── logger.js
 │       ├── token.js
 │       └── validation.js
+├── prisma/
+│   ├── schema.prisma
+│   └── seed.js
 ├── tests/
 │   └── auth.test.js
 ├── Dockerfile
@@ -55,6 +58,8 @@ apps/auth-service/
 - `src/utils/logger.js` creates the Winston logger used by the service.
 - `src/utils/token.js` creates JWT tokens after successful login.
 - `src/utils/validation.js` contains simple request validation functions.
+- `prisma/schema.prisma` defines the PostgreSQL database tables used by Prisma.
+- `prisma/seed.js` creates safe demo users for local development.
 - `tests/auth.test.js` contains automated API tests using Jest and Supertest.
 - `Dockerfile` defines how to build the service into a Docker image.
 - `.dockerignore` keeps unnecessary local files out of the Docker build context.
@@ -128,6 +133,7 @@ Environment variables used by this service:
 
 - `NODE_ENV`: tells the app which environment it is running in, such as `development` or `test`.
 - `PORT`: controls which port the service listens on.
+- `DATABASE_URL`: tells Prisma how to connect to PostgreSQL.
 - `JWT_SECRET`: private value used to sign and verify JWT tokens.
 - `JWT_EXPIRES_IN`: controls how long JWT tokens stay valid.
 - `RATE_LIMIT_WINDOW_MS`: time window for request rate limiting, in milliseconds.
@@ -144,6 +150,123 @@ Then run the service:
 
 ```bash
 npm run dev
+```
+
+## PostgreSQL and Prisma
+
+This service now stores users in PostgreSQL instead of an in-memory array.
+
+PostgreSQL is a real database. It keeps data even when the Node.js service restarts.
+
+Prisma is an ORM for Node.js. ORM means Object Relational Mapper. It lets the app use JavaScript methods like `prisma.user.findUnique()` instead of writing raw SQL for every query.
+
+In-memory storage was useful for learning, but it erased all users whenever the server restarted. PostgreSQL gives the service persistent user storage.
+
+`DATABASE_URL` is the connection string Prisma uses to reach PostgreSQL. It includes the username, password, host, port, database name, and schema.
+
+A migration is a versioned database change. For example, the first migration creates the `User` table.
+
+From the project root, start PostgreSQL and auth-service:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up -d --build
+```
+
+From `apps/auth-service`, create `.env` if it is missing:
+
+```bash
+cp .env.example .env
+```
+
+Run the first migration:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+Generate Prisma client:
+
+```bash
+npm run db:generate
+```
+
+Open Prisma Studio:
+
+```bash
+npm run db:studio
+```
+
+Test health:
+
+```bash
+curl http://localhost:5001/health
+```
+
+Register a user:
+
+```bash
+curl -X POST http://localhost:5001/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test User","email":"test@example.com","password":"password123"}'
+```
+
+## Database Seeding
+
+Seed data is sample data inserted into the database so developers can test the API quickly.
+
+This service has a Prisma seed script that creates two local demo users:
+
+- Admin User: `admin@cloudguard.local` with password `AdminPass123`
+- Demo User: `demo@cloudguard.local` with password `DemoPass123`
+
+The seed script still hashes passwords with `bcryptjs`. Plain text passwords are never stored in PostgreSQL.
+
+Use `db:seed` when the database already exists and you only want to add or refresh demo users.
+
+Use `db:reset` when you want to rebuild the local database from scratch. Be careful: `db:reset` deletes local database data.
+
+From the project root, start PostgreSQL:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up -d postgres
+```
+
+From `apps/auth-service`, create `.env` if it is missing:
+
+```bash
+cp .env.example .env
+```
+
+Run database setup:
+
+```bash
+npm run db:setup
+```
+
+Seed only:
+
+```bash
+npm run db:seed
+```
+
+Reset local database:
+
+```bash
+npm run db:reset
+```
+
+Open Prisma Studio:
+
+```bash
+npm run db:studio
+```
+
+Login with the demo user:
+
+```bash
+curl -X POST http://localhost:5001/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@cloudguard.local","password":"DemoPass123"}'
 ```
 
 ## Security and Validation Basics
@@ -267,6 +390,22 @@ Remove container:
 ```bash
 docker rm cloudguard-auth-service
 ```
+
+## Docker Compose
+
+A project-level Docker Compose file exists at:
+
+```text
+docker/docker-compose.auth.yml
+```
+
+From the project root, run:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up --build
+```
+
+This currently starts `auth-service` and PostgreSQL. Redis and other services will be added later.
 
 ## Test Endpoints With curl
 
