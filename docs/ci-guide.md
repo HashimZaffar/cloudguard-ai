@@ -85,6 +85,43 @@ Common examples:
 - Docker build failed: check the Dockerfile and build context.
 - Security audit failed: review the vulnerability and decide whether dependency updates are safe.
 
+## Image Publishing Workflow
+
+The auth-service image publishing workflow is:
+
+```text
+.github/workflows/auth-service-docker-publish.yml
+```
+
+It builds the auth-service Docker image and pushes it to GitHub Container Registry:
+
+```text
+ghcr.io/<github-owner>/cloudguard-auth-service
+```
+
+This workflow runs only on:
+
+- pushes to `main`
+- version tags like `v1.0.0`
+- manual runs from the GitHub Actions tab
+
+It does not publish images from pull requests. Pull requests should prove that code is healthy, but they should not publish release artifacts.
+
+The workflow uses `GITHUB_TOKEN` to log in to GHCR. The `packages: write` permission allows pushing the image, and `contents: read` allows checking out the repository code.
+
+Useful image tags:
+
+- `latest`: latest image from the default branch.
+- `sha-<commit-sha>`: exact image for a commit.
+- `1.0.0`: full version from a tag like `v1.0.0`.
+- `1.0`: major/minor version from a tag like `v1.0.0`.
+
+The full registry guide is:
+
+```text
+docs/container-registry-guide.md
+```
+
 ## Local Pre-Push Checklist
 
 Run these commands before pushing.

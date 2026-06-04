@@ -114,3 +114,20 @@ Security workflow jobs:
 Some findings need human review. For example, a scanner may report a pattern that is risky in one app but acceptable in another because of how authentication or deployment works.
 
 At this stage, Trivy fails the workflow only for critical image vulnerabilities. High findings are still reported, but they do not fail the workflow yet. This keeps the learning workflow practical while still showing important security information.
+
+## Image Publishing Security Note
+
+The Docker publish workflow builds and pushes the auth-service image to GitHub Container Registry.
+
+Security scanning is still handled by the CI and security workflows:
+
+- the CI workflow builds the Docker image and runs a Trivy image scan for critical vulnerabilities
+- the security workflow runs Gitleaks, Semgrep, npm audit, and Trivy checks
+
+This keeps publishing simple while still making security checks visible before or alongside publishing.
+
+Later, the project can add stronger supply-chain controls, such as:
+
+- SBOM generation, which lists what is inside the image
+- image signing, which proves who created the image
+- stricter vulnerability gates before publishing production images

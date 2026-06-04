@@ -185,6 +185,37 @@ npm run security:audit
 docker build -t cloudguard-auth-service:local .
 ```
 
+## Published Docker Image
+
+Auth-service can be published to GitHub Container Registry by GitHub Actions.
+
+Published image name:
+
+```text
+ghcr.io/<github-owner>/cloudguard-auth-service
+```
+
+The publish workflow runs on pushes to `main`, version tags like `v1.0.0`, and manual runs from the GitHub Actions tab. It does not publish images for pull requests.
+
+Common tags:
+
+- `latest`: latest image from the default branch.
+- `sha-<commit-sha>`: exact image for a specific commit.
+- `1.0.0`: version image created from a tag like `v1.0.0`.
+- `1.0`: major/minor image created from a tag like `v1.0.0`.
+
+Pull the published image after the workflow succeeds:
+
+```bash
+docker pull ghcr.io/<github-owner>/cloudguard-auth-service:latest
+```
+
+The full beginner guide is in:
+
+```text
+docs/container-registry-guide.md
+```
+
 ## Environment Configuration
 
 Environment variables are settings that come from outside the code. They let the same app run differently in development, testing, Docker, Kubernetes, and cloud environments.

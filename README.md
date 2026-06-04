@@ -278,6 +278,30 @@ The workflow runs:
 
 This is separate from the CI workflow so security checks are easy to find and review.
 
+## Docker Image Publishing
+
+The auth-service Docker image publishing workflow lives here:
+
+```text
+.github/workflows/auth-service-docker-publish.yml
+```
+
+It publishes the auth-service image to GitHub Container Registry when code is pushed to `main`, when a version tag like `v1.0.0` is pushed, or when the workflow is started manually.
+
+Published image:
+
+```text
+ghcr.io/<github-owner>/cloudguard-auth-service
+```
+
+The workflow creates useful tags such as `latest`, `sha-<commit-sha>`, full version tags like `1.0.0`, and minor version tags like `1.0`.
+
+Full guide:
+
+```text
+docs/container-registry-guide.md
+```
+
 Stop stack:
 
 ```bash
