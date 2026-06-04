@@ -1,0 +1,14 @@
+title = "CloudGuard AI Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow obvious local learning placeholder values only"
+regexes = [
+  '''local-dev-secret''',
+  '''test-secret''',
+  '''test-secret-for-auth-service''',
+  '''change-this-secret-in-real-project''',
+  '''cloudguard_password''',
+]

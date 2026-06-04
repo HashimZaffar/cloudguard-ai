@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: CloudGuard Dashboards
+    folder: CloudGuard AI
+    type: file
+    allowUiUpdates: true
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards

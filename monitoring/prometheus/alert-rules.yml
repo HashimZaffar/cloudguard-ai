@@ -1,0 +1,58 @@
+groups:
+  - name: auth-service-alerts
+    rules:
+      - alert: AuthServiceDown
+        expr: up{job="cloudguard-auth-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Auth service is down"
+          description: "Prometheus cannot scrape auth-service metrics."
+
+      - alert: HighHttpErrorRate
+        # clamp_min keeps the denominator above zero when local traffic is very low.
+        expr: |
+          (
+            sum(rate(cloudguard_auth_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(cloudguard_auth_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "More than 5% of auth-service requests are failing with 5xx errors."
+
+      - alert: HighRequestLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(cloudguard_auth_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "High request latency"
+          description: "95th percentile request latency is above 1 second."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="cloudguard-auth-service"} > 300000000
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "High memory usage"
+          description: "Auth-service memory usage is above 300MB."
+
+      - alert: NoRecentSuccessfulLogin
+        expr: increase(cloudguard_auth_login_attempts_total{status="success"}[30m]) == 0
+        for: 30m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "No recent successful logins"
+          description: "No successful login has been recorded in the last 30 minutes. This may be normal in local development."

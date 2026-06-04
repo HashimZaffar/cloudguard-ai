@@ -1,0 +1,101 @@
+name: Auth Service CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-service:
+    name: Format, lint, test, audit, and build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/auth-service
+
+    env:
+      NODE_ENV: test
+      PORT: 5001
+      JWT_SECRET: test-secret
+      JWT_EXPIRES_IN: 1h
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 100
+      CORS_ORIGIN: "*"
+      DATABASE_URL: postgresql://cloudguard_user:cloudguard_password@localhost:5432/cloudguard_auth_test_db?schema=public
+
+    # The auth-service stores users in PostgreSQL, so CI starts a temporary
+    # database container before running Prisma migrations and tests.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloudguard_user
+          POSTGRES_PASSWORD: cloudguard_password
+          POSTGRES_DB: cloudguard_auth_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cloudguard_user -d cloudguard_auth_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/auth-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        # Prisma client is generated from schema.prisma before tests use it.
+        run: npm run db:generate
+
+      - name: Run Prisma migrations
+        # migrate deploy applies committed migration files to the CI database.
+        run: npx prisma migrate deploy
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run tests
+        # Tests run before the Docker build so code problems fail quickly.
+        run: npm test
+
+      - name: Run npm security audit
+        # DevSecOps check: dependency scanning catches vulnerable npm packages.
+        run: npm run security:audit
+
+      - name: Build Docker image
+        # Building the image in CI catches Dockerfile and build-context issues.
+        run: docker build -t cloudguard-auth-service:ci .
+
+      - name: Scan Docker image with Trivy
+        # DevSecOps check: fail only on critical image vulnerabilities for now.
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: cloudguard-auth-service:ci
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library

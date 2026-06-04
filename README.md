@@ -100,3 +100,167 @@ Stop the service:
 ```bash
 docker compose -f docker/docker-compose.auth.yml down
 ```
+
+## Local Monitoring with Prometheus, Grafana, Loki, Promtail, and Alertmanager
+
+The auth-service exposes Prometheus metrics at `/metrics`. The local Docker Compose stack includes Prometheus to collect metrics and Grafana to visualize them.
+
+Loki and Promtail are also included. Promtail collects Docker container logs, sends them to Loki, and Grafana lets you explore those logs using the Loki datasource.
+
+Alertmanager is included for local alerting. Prometheus loads auth-service alert rules and sends firing alerts to Alertmanager.
+
+Start the full local stack:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up -d --build
+```
+
+Check containers:
+
+```bash
+docker ps
+```
+
+Open Auth Service:
+
+```text
+http://localhost:5001/health
+```
+
+Open Prometheus:
+
+```text
+http://localhost:9090
+```
+
+Check Prometheus targets:
+
+```text
+http://localhost:9090/targets
+```
+
+Check Prometheus alert rules:
+
+```text
+http://localhost:9090/alerts
+```
+
+Open Alertmanager:
+
+```text
+http://localhost:9093
+```
+
+Open Grafana:
+
+```text
+http://localhost:3000
+```
+
+Open Loki readiness check:
+
+```text
+http://localhost:3100/ready
+```
+
+Grafana local login:
+
+```text
+Username: admin
+Password: admin
+```
+
+Grafana dashboard is automatically provisioned. Go to:
+
+```text
+Dashboards > CloudGuard AI > CloudGuard AI - Auth Service Dashboard
+```
+
+Logs can be explored in Grafana:
+
+```text
+Explore > Loki > {job="docker-containers"}
+```
+
+## Local DevSecOps Scanning
+
+DevSecOps means adding security checks early in the development workflow. These local scans help find dependency vulnerabilities, leaked secrets, insecure code patterns, and Docker image vulnerabilities before CI/CD is added.
+
+Run npm dependency audit from `apps/auth-service`:
+
+```bash
+npm run security:audit
+```
+
+Run Gitleaks secret scanning from the project root:
+
+```bash
+docker run --rm -v "${PWD}:/repo" zricethezav/gitleaks:latest detect --source="/repo" --config="/repo/security/gitleaks/gitleaks.toml" --verbose
+```
+
+Run Semgrep source scanning from the project root:
+
+```bash
+docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep scan --config auto /src/apps/auth-service
+```
+
+Build and scan the auth-service Docker image with Trivy:
+
+```bash
+cd apps/auth-service
+docker build -t cloudguard-auth-service:1.0.0 .
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image cloudguard-auth-service:1.0.0
+```
+
+You can also run the local helper script from the project root:
+
+```bash
+bash security/run-local-security-scans.sh
+```
+
+Full guide:
+
+```text
+docs/devsecops-guide.md
+```
+
+## GitHub Actions CI
+
+CI means Continuous Integration. It automatically checks code changes before they are merged, which helps catch problems early.
+
+The auth-service CI workflow lives here:
+
+```text
+.github/workflows/auth-service-ci.yml
+```
+
+It runs on pushes and pull requests to `main` and `develop`. It can also be started manually from GitHub Actions.
+
+The workflow checks:
+
+- dependency installation with `npm ci`
+- Prisma client generation and database migrations
+- formatting with `npm run format:check`
+- linting with `npm run lint`
+- tests with `npm test`
+- dependency security audit with `npm run security:audit`
+- Docker image build for auth-service
+- Trivy image scan for critical vulnerabilities
+
+PostgreSQL is included in CI as a service container because auth-service registration and login tests need a real database.
+
+Docker image build is included because Dockerfile problems should be caught before deployment work begins.
+
+Security checks are included because DevSecOps means checking dependencies and container images early, not after release.
+
+Full guide:
+
+```text
+docs/ci-guide.md
+```
+
+Stop stack:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml down
+```

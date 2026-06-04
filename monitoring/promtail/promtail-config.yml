@@ -1,0 +1,29 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-containers
+    docker_sd_configs:
+      # Promtail discovers local Docker containers through the Docker socket.
+      # This works better for local learning because Docker log file paths can
+      # be different on Snap Docker, Docker Desktop, macOS, and Windows.
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Turn Docker metadata into friendly Loki labels.
+      - source_labels:
+          - __meta_docker_container_name
+        regex: /(.+)
+        target_label: container
+      - source_labels:
+          - __meta_docker_container_label_com_docker_compose_service
+        target_label: service
+      - target_label: job
+        replacement: docker-containers

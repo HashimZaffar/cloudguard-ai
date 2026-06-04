@@ -1,0 +1,13 @@
+route:
+  receiver: local-console
+  group_by:
+    - alertname
+    - service
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  # Local learning setup: alerts are visible in the Alertmanager UI.
+  # Real email, Slack, PagerDuty, or webhook notifications can be added later.
+  - name: local-console

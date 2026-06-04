@@ -28,6 +28,11 @@ The file `docker/docker-compose.auth.yml` currently runs:
 
 - `auth-service`
 - PostgreSQL
+- Prometheus
+- Alertmanager
+- Grafana
+- Loki
+- Promtail
 
 It defines:
 
@@ -39,8 +44,12 @@ It defines:
 - a health check for `/health`
 - a PostgreSQL database container named `cloudguard-auth-postgres`
 - port mapping from `5432` on your machine to `5432` in the database container
+- an Alertmanager container named `cloudguard-alertmanager`
+- port mapping from `9093` on your machine to `9093` in the Alertmanager container
 - a Docker network named `cloudguard-network`
 - a named volume called `cloudguard-auth-postgres-data`
+- a named volume called `cloudguard-grafana-data`
+- a named volume called `cloudguard-loki-data`
 
 Redis and other services will be added in later phases.
 
@@ -128,6 +137,139 @@ docker compose -f docker/docker-compose.auth.yml down -v
 
 Warning:
 This deletes local PostgreSQL data.
+
+## Health Checks
+
+Docker uses the auth-service `/health` endpoint for its container healthcheck. This endpoint only checks that the Node.js process is alive.
+
+PostgreSQL has its own healthcheck using `pg_isready`.
+
+The `/ready` endpoint is more useful later for Kubernetes because it checks whether the app can reach PostgreSQL. If the database is not available, `/ready` may return `503`.
+
+The `/health/db` endpoint is a focused database connection check.
+
+## Metrics Endpoint
+
+The auth-service now exposes `/metrics`.
+
+Prometheus scrapes this endpoint to collect service metrics:
+
+```bash
+curl http://localhost:5001/metrics
+```
+
+The response is Prometheus text format, not JSON.
+
+Open Prometheus targets in your browser:
+
+```text
+http://localhost:9090/targets
+```
+
+Open Grafana in your browser:
+
+```text
+http://localhost:3000
+```
+
+Local Grafana login:
+
+```text
+Username: admin
+Password: admin
+```
+
+Grafana provisioning automatically loads the Prometheus datasource and the auth-service dashboard.
+
+If the dashboard is not visible, restart Grafana:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml restart grafana
+```
+
+If panels show no data, generate traffic against auth-service and wait at least 30 seconds for Prometheus to scrape new metrics.
+
+## Alerting Services in Docker Compose
+
+Docker Compose now starts Alertmanager with the local monitoring stack.
+
+Prometheus reads alert rules from:
+
+```text
+monitoring/prometheus/alert-rules.yml
+```
+
+When an alert starts firing, Prometheus sends it to Alertmanager at:
+
+```text
+http://alertmanager:9093
+```
+
+From your browser, open:
+
+```text
+http://localhost:9093
+```
+
+Local alerts are for learning only. No real email, Slack, or PagerDuty notification is configured yet.
+
+Open the Prometheus alerts page:
+
+```text
+http://localhost:9090/alerts
+```
+
+## Logging Services in Docker Compose
+
+Docker Compose now starts:
+
+- auth-service
+- PostgreSQL
+- Prometheus
+- Alertmanager
+- Grafana
+- Loki
+- Promtail
+
+Loki stores logs. Promtail collects logs from Docker containers and sends them to Loki. Grafana displays those logs through the Loki datasource.
+
+This local setup uses the Docker socket so Promtail can discover local containers:
+
+```text
+/var/run/docker.sock
+```
+
+Some Linux examples mount Docker log files from:
+
+```text
+/var/lib/docker/containers
+```
+
+That path is not reliable on every machine. For example, Snap-based Docker installs may not expose it in the same way. The Docker socket approach is simpler for this beginner local setup.
+
+Check Loki readiness:
+
+```bash
+curl http://localhost:3100/ready
+```
+
+View Promtail logs:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml logs -f promtail
+```
+
+View Loki logs:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml logs -f loki
+```
+
+If the Loki datasource is missing in Grafana, restart Grafana:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml restart grafana
+```
 
 ## Beginner Troubleshooting
 

@@ -1,0 +1,21 @@
+global:
+  # Prometheus will collect metrics every 15 seconds.
+  scrape_interval: 15s
+
+rule_files:
+  # Prometheus loads alert rules from this file.
+  - /etc/prometheus/alert-rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: cloudguard-auth-service
+    metrics_path: /metrics
+    static_configs:
+      # Inside Docker Compose, services can talk to each other by service name.
+      - targets:
+          - auth-service:5001
