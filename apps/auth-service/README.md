@@ -25,11 +25,16 @@ apps/auth-service/
 │   ├── middleware/
 │   │   ├── auth.middleware.js
 │   │   ├── error.middleware.js
+│   │   ├── metrics.middleware.js
 │   │   └── request-logger.middleware.js
 │   ├── routes/
-│   │   └── auth.routes.js
+│   │   ├── auth.routes.js
+│   │   ├── health.routes.js
+│   │   └── metrics.routes.js
 │   └── utils/
+│       ├── health.js
 │       ├── logger.js
+│       ├── metrics.js
 │       ├── token.js
 │       └── validation.js
 ├── prisma/
@@ -53,9 +58,14 @@ apps/auth-service/
 - `src/docs/swagger.js` creates the OpenAPI specification for Swagger UI.
 - `src/middleware/auth.middleware.js` protects routes by checking JWT tokens.
 - `src/middleware/error.middleware.js` handles unknown routes and unexpected errors.
+- `src/middleware/metrics.middleware.js` records HTTP metrics for Prometheus.
 - `src/middleware/request-logger.middleware.js` logs each completed API request.
 - `src/routes/auth.routes.js` contains the API endpoint logic.
+- `src/routes/health.routes.js` contains liveness, readiness, and database health checks.
+- `src/routes/metrics.routes.js` exposes Prometheus metrics at `/metrics`.
+- `src/utils/health.js` checks database connectivity for readiness endpoints.
 - `src/utils/logger.js` creates the Winston logger used by the service.
+- `src/utils/metrics.js` defines default and custom Prometheus metrics.
 - `src/utils/token.js` creates JWT tokens after successful login.
 - `src/utils/validation.js` contains simple request validation functions.
 - `prisma/schema.prisma` defines the PostgreSQL database tables used by Prisma.
@@ -89,9 +99,27 @@ npm start
 
 ## Run Tests
 
+The auth API tests use PostgreSQL because registration and login are stored in the database.
+
+From the project root, start PostgreSQL first:
+
+```bash
+docker compose -f docker/docker-compose.auth.yml up -d postgres
+```
+
+From `apps/auth-service`, make sure the test database has the latest Prisma tables:
+
+```bash
+DATABASE_URL="postgresql://cloudguard_user:cloudguard_password@localhost:5432/cloudguard_auth_test_db?schema=public" npx prisma migrate deploy
+```
+
+Then run:
+
 ```bash
 npm test
 ```
+
+If `npm test` says it cannot reach `localhost:5432`, PostgreSQL is not running or Docker has not finished starting it yet. Wait until the `cloudguard-auth-postgres` container is healthy, then run the test again.
 
 Testing is important because it quickly checks that the API still works after code changes. As the project grows, tests help catch mistakes before Docker, Kubernetes, or CI/CD run the service.
 
@@ -119,6 +147,40 @@ Check formatting without changing files:
 
 ```bash
 npm run format:check
+```
+
+## Security Scanning
+
+This service includes local DevSecOps checks.
+
+`npm audit` checks npm dependencies for known vulnerabilities:
+
+```bash
+npm run security:audit
+```
+
+Semgrep checks source code for insecure patterns. Gitleaks checks project files for accidentally committed secrets. Trivy checks Docker images for known vulnerabilities.
+
+The full beginner guide is in:
+
+```text
+docs/devsecops-guide.md
+```
+
+## CI Pipeline
+
+GitHub Actions automatically checks auth-service when code is pushed or opened in a pull request.
+
+The CI pipeline runs formatting checks, linting, tests, npm audit, Prisma migration setup, Docker image build, and a Trivy image scan.
+
+Before pushing, run the same important checks locally:
+
+```bash
+npm run format:check
+npm run lint
+npm test
+npm run security:audit
+docker build -t cloudguard-auth-service:local .
 ```
 
 ## Environment Configuration
@@ -348,6 +410,54 @@ http://localhost:5001/api-docs
 ```
 
 Protected routes like `/profile` require a JWT Bearer token. In Swagger UI, use the authorize option and enter the token from the `/login` response.
+
+## Health and Readiness Checks
+
+Health checks help platforms understand whether a service is alive and ready.
+
+Liveness means the Node.js process is running. The `/health` endpoint is a liveness check. It does not check the database, so it can answer quickly even if PostgreSQL is temporarily unavailable.
+
+Readiness means the app is ready to receive traffic. The `/ready` endpoint checks database connectivity because this auth-service needs PostgreSQL for registration and login.
+
+`/health` and `/ready` are different on purpose. A service can be alive but not ready if the database is down.
+
+`/health/db` is a focused database health endpoint. It runs a small database query and reports whether PostgreSQL is connected.
+
+These endpoints will be useful later in Kubernetes. Kubernetes can use liveness checks to restart broken containers and readiness checks to decide whether traffic should be sent to a pod.
+
+Try them:
+
+```bash
+curl http://localhost:5001/health
+curl http://localhost:5001/ready
+curl http://localhost:5001/health/db
+```
+
+## Prometheus Metrics
+
+Metrics are numeric measurements that help us understand how a service is behaving over time.
+
+Prometheus is a monitoring system that collects metrics from application endpoints. Later, Prometheus will scrape this service and Grafana will use the data for dashboards.
+
+The `/metrics` endpoint exposes metrics in Prometheus text format. It is not a normal JSON API endpoint.
+
+Logs and metrics are different. Logs describe events, such as a request or error. Metrics are numbers, such as request count, request duration, memory usage, and CPU usage.
+
+This service exposes metrics such as:
+
+- total HTTP requests
+- request duration
+- login attempts
+- user registrations
+- memory and CPU metrics
+
+These metrics are important for future monitoring, Grafana dashboards, alerting, and AIOps analysis.
+
+Try it:
+
+```bash
+curl http://localhost:5001/metrics
+```
 
 ## Docker
 

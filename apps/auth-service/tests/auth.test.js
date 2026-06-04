@@ -1,5 +1,6 @@
 const request = require('supertest');
 
+process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-for-auth-service';
 process.env.JWT_EXPIRES_IN = '1h';
 process.env.DATABASE_URL =
@@ -39,6 +40,8 @@ describe('Auth Service API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.status).toBe('healthy');
     expect(response.body.service).toBe('auth-service');
+    expect(response.body.timestamp).toEqual(expect.any(String));
+    expect(response.body.uptimeSeconds).toEqual(expect.any(Number));
   });
 
   test('GET /api-docs should make Swagger UI available', async () => {

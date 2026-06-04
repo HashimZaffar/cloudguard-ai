@@ -10,6 +10,8 @@
     "lint": "eslint src tests prisma",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" \"prisma/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" \"prisma/**/*.js\"",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:audit:fix": "npm audit fix",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
@@ -29,6 +31,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "prom-client": "^15.1.3",
     "swagger-jsdoc": "6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.17.0"

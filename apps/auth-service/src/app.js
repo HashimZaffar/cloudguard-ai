@@ -6,6 +6,9 @@ const swaggerUi = require('swagger-ui-express');
 const config = require('./config/env');
 const swaggerSpec = require('./docs/swagger');
 const authRoutes = require('./routes/auth.routes');
+const healthRoutes = require('./routes/health.routes');
+const metricsRoutes = require('./routes/metrics.routes');
+const { metricsMiddleware } = require('./middleware/metrics.middleware');
 const { requestLogger } = require('./middleware/request-logger.middleware');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 
@@ -39,8 +42,17 @@ app.use(express.json());
 // Request logging records method, URL, status, and response time.
 app.use(requestLogger);
 
+// Metrics middleware records HTTP counts and request duration for Prometheus.
+app.use(metricsMiddleware);
+
 // Swagger UI lets developers view and test API documentation in the browser.
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Metrics route exposes Prometheus-format metrics text.
+app.use('/', metricsRoutes);
+
+// Health routes are separate because liveness/readiness are platform concerns.
+app.use('/', healthRoutes);
 
 // Register all auth-service routes.
 app.use('/', authRoutes);

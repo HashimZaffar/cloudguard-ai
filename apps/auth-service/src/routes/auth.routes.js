@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { authenticate } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const { generateToken } = require('../utils/token');
+const { loginAttemptsTotal, userRegistrationsTotal } = require('../utils/metrics');
 const { validateRegisterInput, validateLoginInput } = require('../utils/validation');
 
 const router = express.Router();
@@ -25,28 +26,6 @@ const SALT_ROUNDS = 10;
 router.get('/', (req, res) => {
   res.json({
     message: 'CloudGuard AI Auth Service is running',
-  });
-});
-
-/**
- * @openapi
- * /health:
- *   get:
- *     summary: Service health check
- *     responses:
- *       200:
- *         description: Service is healthy
- *         content:
- *           application/json:
- *             example:
- *               status: healthy
- *               service: auth-service
- */
-// Health route used by developers, Docker, Kubernetes, and monitoring tools later.
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    service: 'auth-service',
   });
 });
 
@@ -91,6 +70,8 @@ router.post('/register', async (req, res, next) => {
   const validationErrors = validateRegisterInput({ name, email, password });
 
   if (validationErrors.length > 0) {
+    userRegistrationsTotal.inc({ status: 'validation_failed' });
+
     return res.status(400).json({
       message: 'Validation failed',
       errors: validationErrors,
@@ -103,6 +84,8 @@ router.post('/register', async (req, res, next) => {
     });
 
     if (existingUser) {
+      userRegistrationsTotal.inc({ status: 'duplicate' });
+
       return res.status(409).json({
         message: 'User already exists',
       });
@@ -119,6 +102,8 @@ router.post('/register', async (req, res, next) => {
     });
 
     // Never return the password or password hash in an API response.
+    userRegistrationsTotal.inc({ status: 'success' });
+
     return res.status(201).json({
       message: 'User registered successfully',
       user: {
@@ -168,6 +153,8 @@ router.post('/login', async (req, res, next) => {
   const validationErrors = validateLoginInput({ email, password });
 
   if (validationErrors.length > 0) {
+    loginAttemptsTotal.inc({ status: 'failure' });
+
     return res.status(400).json({
       message: 'Validation failed',
       errors: validationErrors,
@@ -180,6 +167,8 @@ router.post('/login', async (req, res, next) => {
     });
 
     if (!user) {
+      loginAttemptsTotal.inc({ status: 'failure' });
+
       return res.status(401).json({
         message: 'Invalid email or password',
       });
@@ -188,10 +177,14 @@ router.post('/login', async (req, res, next) => {
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatches) {
+      loginAttemptsTotal.inc({ status: 'failure' });
+
       return res.status(401).json({
         message: 'Invalid email or password',
       });
     }
+
+    loginAttemptsTotal.inc({ status: 'success' });
 
     return res.json({
       message: 'Login successful',
