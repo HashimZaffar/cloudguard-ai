@@ -91,3 +91,26 @@ The Docker image build runs in CI to catch Dockerfile and build-context problems
 Trivy scans the built image in CI for critical vulnerabilities.
 
 Later, this project can add more security gates, such as Semgrep, Gitleaks, stricter Trivy severity thresholds, and policy checks.
+
+## DevSecOps GitHub Actions Security Workflow
+
+The dedicated security workflow lives here:
+
+```text
+.github/workflows/auth-service-security.yml
+```
+
+It runs on pushes and pull requests to `main` and `develop`. It can also be started manually from the GitHub Actions tab.
+
+The CI workflow checks whether the app builds and behaves correctly. The security workflow focuses on security signals.
+
+Security workflow jobs:
+
+- Gitleaks checks whether secrets were accidentally committed.
+- Semgrep checks source code for risky patterns. This is SAST.
+- npm audit checks npm dependencies for known vulnerabilities.
+- Trivy scans the Docker image for operating system and package vulnerabilities.
+
+Some findings need human review. For example, a scanner may report a pattern that is risky in one app but acceptable in another because of how authentication or deployment works.
+
+At this stage, Trivy fails the workflow only for critical image vulnerabilities. High findings are still reported, but they do not fail the workflow yet. This keeps the learning workflow practical while still showing important security information.

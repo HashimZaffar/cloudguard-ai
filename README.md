@@ -259,6 +259,25 @@ Full guide:
 docs/ci-guide.md
 ```
 
+## GitHub Actions Security Workflow
+
+The dedicated auth-service security workflow lives here:
+
+```text
+.github/workflows/auth-service-security.yml
+```
+
+It runs on pushes and pull requests to `main` and `develop`, and it can be started manually.
+
+The workflow runs:
+
+- Gitleaks secret scanning
+- Semgrep SAST source scanning
+- npm audit dependency scanning
+- Trivy Docker image scanning
+
+This is separate from the CI workflow so security checks are easy to find and review.
+
 Stop stack:
 
 ```bash

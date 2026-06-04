@@ -1,0 +1,125 @@
+name: Auth Service Security
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+# Least privilege for this workflow. We only read repository files.
+# security-events: write can be added later if SARIF upload is enabled.
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks
+        # Gitleaks checks whether secrets were accidentally committed.
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/repo"
+          zricethezav/gitleaks:latest
+          detect
+          --source="/repo"
+          --config="/repo/security/gitleaks/gitleaks.toml"
+          --verbose
+
+  semgrep:
+    name: Semgrep SAST scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        # Semgrep checks source code for risky patterns without running the app.
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/src"
+          semgrep/semgrep
+          semgrep scan
+          --config auto
+          /src/apps/auth-service
+
+  npm-audit:
+    name: npm dependency audit
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/auth-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/auth-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        # npm audit checks third-party npm packages for known vulnerabilities.
+        run: npm run security:audit
+
+  trivy-image-scan:
+    name: Trivy Docker image scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build auth-service image
+        # Trivy scans the same image shape we expect to run later.
+        run: docker build -t cloudguard-auth-service:security-scan ./apps/auth-service
+
+      - name: Report HIGH and CRITICAL image vulnerabilities
+        # This reports high and critical findings but does not fail the workflow yet.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: cloudguard-auth-service:security-scan
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true
+          pkg-types: os,library
+
+      - name: Fail on CRITICAL image vulnerabilities
+        # Beginner gate: fail only on critical issues for now.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: cloudguard-auth-service:security-scan
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          pkg-types: os,library
+
+      - name: Trivy filesystem and Dockerfile scan
+        # This checks Dockerfile/config basics and app filesystem findings.
+        # It is report-only for now while the project is still learning.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: apps/auth-service
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true

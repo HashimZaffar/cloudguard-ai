@@ -161,6 +161,8 @@ npm run security:audit
 
 Semgrep checks source code for insecure patterns. Gitleaks checks project files for accidentally committed secrets. Trivy checks Docker images for known vulnerabilities.
 
+These checks are also automated in GitHub Actions. Local security checks should still be run before pushing so problems are caught early.
+
 The full beginner guide is in:
 
 ```text
