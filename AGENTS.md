@@ -8,6 +8,14 @@ Do not add Kubernetes, cloud deployment, or new services unless explicitly reque
 
 Always preserve existing tests.
 
+Do not add automatic production deployment without an explicit user request.
+
+Deployment workflows should stay manual unless the user asks for automatic deployment.
+
+Never write real secrets into the repository.
+
+Prefer safe rollback documentation when deployment behavior changes.
+
 When changing auth-service behavior, run or recommend:
 
 ```bash
@@ -17,8 +25,6 @@ npm test
 npm run security:audit
 docker compose -f docker/docker-compose.auth.yml config
 ```
-
-Do not commit real secrets.
 
 Do not expose passwords, JWT secrets, API keys, or database credentials except obvious fake local examples.
 

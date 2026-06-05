@@ -38,6 +38,30 @@ ghcr.io/<github-owner>/cloudguard-auth-service:latest
 
 Local images are useful while developing. Published images are useful when CI/CD, servers, or future Kubernetes clusters need to pull the same built artifact.
 
+## How Deployment Uses The Published Image
+
+The deployment Compose file uses the published GHCR image:
+
+```text
+docker/docker-compose.deploy.yml
+```
+
+It reads the image from:
+
+```text
+AUTH_SERVICE_IMAGE
+```
+
+Example:
+
+```bash
+export AUTH_SERVICE_IMAGE=ghcr.io/<github-owner>/cloudguard-auth-service:latest
+```
+
+The tag can be `latest`, a semantic version like `1.0.0`, or a SHA tag like `sha-abc123`.
+
+For real production deployments, prefer a specific version or SHA tag instead of always using `latest`. A pinned tag makes it easier to know exactly what is running and easier to roll back.
+
 ## How GitHub Actions Logs In
 
 The publish workflow uses:

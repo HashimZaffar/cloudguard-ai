@@ -1,0 +1,46 @@
+name: cloudguard-ai-deploy
+
+services:
+  postgres:
+    container_name: cloudguard-auth-postgres-deploy
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cloudguard_user
+      POSTGRES_PASSWORD: cloudguard_password
+      POSTGRES_DB: cloudguard_auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - cloudguard-auth-postgres-deploy-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudguard_user -d cloudguard_auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - cloudguard-deploy-network
+
+  auth-service:
+    container_name: cloudguard-auth-service-deploy
+    image: ${AUTH_SERVICE_IMAGE:-ghcr.io/CHANGE_ME/cloudguard-auth-service:latest}
+    ports:
+      - "5001:5001"
+    env_file:
+      - ../apps/auth-service/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://cloudguard_user:cloudguard_password@postgres:5432/cloudguard_auth_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - cloudguard-deploy-network
+
+networks:
+  cloudguard-deploy-network:
+    name: cloudguard-deploy-network
+
+volumes:
+  cloudguard-auth-postgres-deploy-data:

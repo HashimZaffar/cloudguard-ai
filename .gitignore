@@ -8,6 +8,7 @@ dist/
 build/
 .next/
 coverage/
+.prisma/client/
 
 # Python
 __pycache__/

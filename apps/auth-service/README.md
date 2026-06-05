@@ -2,14 +2,18 @@
 
 The Auth Service is the first backend microservice for CloudGuard AI.
 
-It currently provides simple learning endpoints for:
+It currently provides learning-friendly but realistic endpoints for:
 
 - Checking if the service is running
-- Checking service health
+- Checking service health and readiness
+- Checking database connectivity
+- Exposing Prometheus metrics
+- Viewing Swagger/OpenAPI docs
 - Registering a user
 - Logging in a user
+- Viewing a protected profile with a JWT token
 
-Users are stored in memory only for now. This means all registered users are lost when the service restarts. A real database will be added later.
+Users are stored in PostgreSQL with Prisma ORM. Passwords are hashed before they are saved.
 
 ## Folder Structure
 
@@ -38,10 +42,13 @@ apps/auth-service/
 │       ├── token.js
 │       └── validation.js
 ├── prisma/
+│   ├── migrations/
 │   ├── schema.prisma
 │   └── seed.js
 ├── tests/
-│   └── auth.test.js
+│   ├── auth.test.js
+│   ├── health.test.js
+│   └── metrics.test.js
 ├── Dockerfile
 ├── package.json
 ├── README.md
@@ -70,7 +77,7 @@ apps/auth-service/
 - `src/utils/validation.js` contains simple request validation functions.
 - `prisma/schema.prisma` defines the PostgreSQL database tables used by Prisma.
 - `prisma/seed.js` creates safe demo users for local development.
-- `tests/auth.test.js` contains automated API tests using Jest and Supertest.
+- `tests/` contains automated API tests using Jest and Supertest.
 - `Dockerfile` defines how to build the service into a Docker image.
 - `.dockerignore` keeps unnecessary local files out of the Docker build context.
 - `.env.example` shows the environment variables this service expects.
@@ -370,7 +377,7 @@ This service now includes a few beginner-friendly security improvements.
 
 Passwords should be hashed because plain text passwords are dangerous. If an attacker ever sees stored user data, plain text passwords can be used immediately. A hash is a one-way version of the password, so the real password is not stored.
 
-`bcryptjs` hashes passwords before saving them in memory. During login, it compares the entered password with the saved hash.
+`bcryptjs` hashes passwords before saving them in PostgreSQL. During login, it compares the entered password with the saved hash.
 
 Helmet adds basic secure HTTP headers to Express responses. These headers help protect the API from some common browser and web security risks.
 
@@ -470,7 +477,7 @@ curl http://localhost:5001/health/db
 
 Metrics are numeric measurements that help us understand how a service is behaving over time.
 
-Prometheus is a monitoring system that collects metrics from application endpoints. Later, Prometheus will scrape this service and Grafana will use the data for dashboards.
+Prometheus is a monitoring system that collects metrics from application endpoints. In the local Docker Compose stack, Prometheus scrapes this service and Grafana uses the data for dashboards.
 
 The `/metrics` endpoint exposes metrics in Prometheus text format. It is not a normal JSON API endpoint.
 
@@ -548,7 +555,7 @@ From the project root, run:
 docker compose -f docker/docker-compose.auth.yml up --build
 ```
 
-This currently starts `auth-service` and PostgreSQL. Redis and other services will be added later.
+This starts `auth-service`, PostgreSQL, Prometheus, Grafana, Loki, Promtail, and Alertmanager.
 
 ## Test Endpoints With curl
 
@@ -604,7 +611,7 @@ Expected response:
 }
 ```
 
-The password is hashed before it is stored in memory. The password and password hash are not returned in the response.
+The password is hashed before it is stored in PostgreSQL. The password and password hash are not returned in the response.
 
 ### Validation Error
 

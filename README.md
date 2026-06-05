@@ -1,115 +1,118 @@
 # CloudGuard AI
 
-CloudGuard AI is a real-world DevOps, DevSecOps, and AIOps portfolio project.
+CloudGuard AI is a DevOps, DevSecOps, and AIOps portfolio project built step by step from scratch.
 
-The goal is to build a cloud-native microservices platform step by step. It will start simple, then grow into a production-style system with containers, Kubernetes, CI/CD, security scanning, monitoring, logging, and an AI-powered incident assistant.
+The current phase focuses on one production-style backend service: `auth-service`. It shows how a real service can be built, tested, containerized, monitored, logged, scanned, documented, and prepared for safe deployment.
 
-## Project Goals
+## Problem This Project Solves
 
-- Build a frontend dashboard for platform visibility.
-- Create backend microservices for authentication, users, orders, and notifications.
-- Use PostgreSQL for persistent data storage.
-- Use Redis for caching and fast background workflows.
-- Containerize services with Docker.
-- Deploy services with Kubernetes.
-- Automate testing, building, and deployment with GitHub Actions.
-- Add DevSecOps scanning for code, containers, secrets, and Kubernetes manifests.
-- Add monitoring, logging, and alerting.
-- Build an AIOps assistant to help summarize incidents and suggest runbooks.
+Modern cloud platforms need more than application code. A useful service also needs:
 
-## Planned Tech Stack
+- reliable API behavior
+- secure authentication
+- persistent database storage
+- tests and code quality checks
+- Docker packaging
+- monitoring, logs, and alerts
+- security scanning
+- CI/CD automation
+- safe deployment and rollback planning
 
-- Frontend: React or Next.js
-- Backend: Node.js or Python services
+CloudGuard AI demonstrates these practices in a beginner-friendly but professional structure.
+
+## Tech Stack
+
+- Backend: Node.js, Express.js
+- Authentication: JWT, bcryptjs
 - Database: PostgreSQL
-- Cache and queues: Redis
-- Containers: Docker
-- Orchestration: Kubernetes
-- Infrastructure as Code: Terraform
-- GitOps: Argo CD
+- ORM: Prisma
+- API Docs: Swagger/OpenAPI
+- Testing: Jest, Supertest
+- Code Quality: ESLint, Prettier
+- Containers: Docker, Docker Compose
+- Metrics: prom-client, Prometheus
+- Dashboards: Grafana
+- Logs: Winston, Loki, Promtail
+- Alerts: Prometheus alert rules, Alertmanager
+- Security: npm audit, Gitleaks, Semgrep, Trivy
 - CI/CD: GitHub Actions
-- Security: Trivy, Gitleaks, Semgrep, Kubescape, policy checks
-- Monitoring: Prometheus, Grafana, Loki, Alertmanager
-- AIOps: Python-based incident assistant and log summarizer
+- Registry: GitHub Container Registry
 
-## Learning Roadmap
+## Architecture Summary
 
-1. Phase 1: Project initialization and documentation
-2. Phase 2: Build basic frontend and backend services
-3. Phase 3: Add PostgreSQL and Redis locally
-4. Phase 4: Add Dockerfiles and Docker Compose
-5. Phase 5: Add Kubernetes manifests
-6. Phase 6: Add GitHub Actions CI/CD
-7. Phase 7: Add security scanning tools
-8. Phase 8: Add monitoring and logging
-9. Phase 9: Add AIOps incident assistant
-10. Phase 10: Polish documentation and prepare portfolio demo
-
-## Current Status
-
-Phase 1 project initialization.
-
-The base folder structure and starter documentation are now in place. Application code will be added in later phases.
-
-## Run auth-service with Docker Compose
-
-Docker Compose lets you run one or more containers from a single YAML file. It is useful for local development because you can start services with one command instead of typing long `docker run` commands.
-
-Plain `docker run` starts one container from command-line options. Docker Compose stores those options in a reusable file, which becomes much easier once PostgreSQL, Redis, and other services are added.
-
-This Compose setup currently runs `auth-service` and PostgreSQL. Redis will be added later.
-
-Create the auth-service `.env` file if it is missing:
-
-```bash
-cp apps/auth-service/.env.example apps/auth-service/.env
+```text
+Developer
+   |
+   v
+auth-service API
+   |
+   +--> PostgreSQL
+   |
+   +--> /metrics --> Prometheus --> Grafana
+   |
+   +--> Docker logs --> Promtail --> Loki --> Grafana
+   |
+   +--> Prometheus alert rules --> Alertmanager
 ```
 
-Start auth-service:
+The current platform runs locally with Docker Compose. Kubernetes, Terraform, Argo CD, cloud deployment, SBOM generation, Cosign signing, and the AIOps assistant are future enhancements.
+
+## Features Completed
+
+- Express auth API with `/register`, `/login`, and protected `/profile`
+- JWT authentication with safe token payloads
+- Password hashing with bcryptjs
+- PostgreSQL persistence with Prisma
+- Prisma migration and seed script
+- Health, readiness, and database health endpoints
+- Swagger UI at `/api-docs`
+- Structured request logging with Winston
+- Prometheus metrics at `/metrics`
+- Prometheus, Grafana, Loki, Promtail, and Alertmanager local stack
+- Grafana dashboards for metrics and logs
+- Alert rules for auth-service health and performance signals
+- Jest and Supertest API tests
+- ESLint and Prettier
+- Dockerfile and Docker Compose
+- Local DevSecOps scanning script
+- GitHub Actions CI workflow
+- GitHub Actions security workflow
+- Docker publish workflow for GHCR
+- Manual Docker Compose deployment and rollback planning
+
+## Local Setup
+
+Install dependencies:
 
 ```bash
-docker compose -f docker/docker-compose.auth.yml up --build
+cd apps/auth-service
+npm install
 ```
 
-Run in detached mode:
+Create a local environment file:
 
 ```bash
-docker compose -f docker/docker-compose.auth.yml up -d --build
+cp .env.example .env
 ```
 
-Check running containers:
+Run local checks:
 
 ```bash
-docker ps
+npm run format:check
+npm run lint
+npm test
+npm run security:audit
 ```
 
-Test the health endpoint:
+Tests need PostgreSQL. Start it from the project root if needed:
 
 ```bash
-curl http://localhost:5001/health
+docker compose -f docker/docker-compose.auth.yml up -d postgres
 ```
 
-View logs:
+## Docker Compose
 
-```bash
-docker compose -f docker/docker-compose.auth.yml logs -f auth-service
-```
-
-Stop the service:
-
-```bash
-docker compose -f docker/docker-compose.auth.yml down
-```
-
-## Local Monitoring with Prometheus, Grafana, Loki, Promtail, and Alertmanager
-
-The auth-service exposes Prometheus metrics at `/metrics`. The local Docker Compose stack includes Prometheus to collect metrics and Grafana to visualize them.
-
-Loki and Promtail are also included. Promtail collects Docker container logs, sends them to Loki, and Grafana lets you explore those logs using the Loki datasource.
-
-Alertmanager is included for local alerting. Prometheus loads auth-service alert rules and sends firing alerts to Alertmanager.
-
-Start the full local stack:
+Start the full local stack from the project root:
 
 ```bash
 docker compose -f docker/docker-compose.auth.yml up -d --build
@@ -121,47 +124,28 @@ Check containers:
 docker ps
 ```
 
-Open Auth Service:
+Stop the stack:
 
-```text
-http://localhost:5001/health
+```bash
+docker compose -f docker/docker-compose.auth.yml down
 ```
 
-Open Prometheus:
+## API Links
 
-```text
-http://localhost:9090
-```
+- Auth health: http://localhost:5001/health
+- Readiness: http://localhost:5001/ready
+- Database health: http://localhost:5001/health/db
+- Metrics: http://localhost:5001/metrics
+- Swagger API docs: http://localhost:5001/api-docs
 
-Check Prometheus targets:
+## Monitoring Links
 
-```text
-http://localhost:9090/targets
-```
-
-Check Prometheus alert rules:
-
-```text
-http://localhost:9090/alerts
-```
-
-Open Alertmanager:
-
-```text
-http://localhost:9093
-```
-
-Open Grafana:
-
-```text
-http://localhost:3000
-```
-
-Open Loki readiness check:
-
-```text
-http://localhost:3100/ready
-```
+- Prometheus: http://localhost:9090
+- Prometheus targets: http://localhost:9090/targets
+- Prometheus alerts: http://localhost:9090/alerts
+- Grafana: http://localhost:3000
+- Alertmanager: http://localhost:9093
+- Loki readiness: http://localhost:3100/ready
 
 Grafana local login:
 
@@ -170,140 +154,128 @@ Username: admin
 Password: admin
 ```
 
-Grafana dashboard is automatically provisioned. Go to:
+This login is only for local learning. Do not use `admin/admin` in production.
+
+## Logging
+
+The auth-service writes structured request logs with Winston.
+
+Promtail reads Docker container logs and sends them to Loki. Grafana uses the Loki datasource to search and view logs.
+
+Example Grafana Explore query:
 
 ```text
-Dashboards > CloudGuard AI > CloudGuard AI - Auth Service Dashboard
+{container="cloudguard-auth-service"}
 ```
 
-Logs can be explored in Grafana:
+## Alerting
+
+Prometheus loads alert rules from:
 
 ```text
-Explore > Loki > {job="docker-containers"}
+monitoring/prometheus/alert-rules.yml
 ```
 
-## Local DevSecOps Scanning
+Alertmanager config is stored at:
 
-DevSecOps means adding security checks early in the development workflow. These local scans help find dependency vulnerabilities, leaked secrets, insecure code patterns, and Docker image vulnerabilities before CI/CD is added.
+```text
+monitoring/alertmanager/alertmanager.yml
+```
 
-Run npm dependency audit from `apps/auth-service`:
+Local alerts are visible in the Alertmanager UI. Email, Slack, PagerDuty, or webhook receivers are future improvements.
+
+## DevSecOps Scanning
+
+Run the local security scan helper from the project root:
 
 ```bash
-npm run security:audit
+./security/run-local-security-scans.sh
 ```
 
-Run Gitleaks secret scanning from the project root:
+This runs:
 
-```bash
-docker run --rm -v "${PWD}:/repo" zricethezav/gitleaks:latest detect --source="/repo" --config="/repo/security/gitleaks/gitleaks.toml" --verbose
-```
+- npm audit for dependency vulnerabilities
+- Gitleaks for secret scanning
+- Semgrep for source code scanning
+- Trivy for Docker image scanning
 
-Run Semgrep source scanning from the project root:
+Semgrep may report a CSRF warning for Express. Because this API uses JWT Bearer tokens instead of cookie-based browser sessions, review that finding in context before deciding whether to add CSRF middleware.
 
-```bash
-docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep scan --config auto /src/apps/auth-service
-```
+## GitHub Actions
 
-Build and scan the auth-service Docker image with Trivy:
+Workflows:
 
-```bash
-cd apps/auth-service
-docker build -t cloudguard-auth-service:1.0.0 .
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image cloudguard-auth-service:1.0.0
-```
+- `.github/workflows/auth-service-ci.yml`: format, lint, test, audit, Docker build, Trivy scan
+- `.github/workflows/auth-service-security.yml`: Gitleaks, Semgrep, npm audit, Trivy
+- `.github/workflows/auth-service-docker-publish.yml`: publish Docker image to GHCR
+- `.github/workflows/auth-service-deploy-compose.yml`: manual Docker Compose deployment using a self-hosted runner
 
-You can also run the local helper script from the project root:
-
-```bash
-bash security/run-local-security-scans.sh
-```
-
-Full guide:
-
-```text
-docs/devsecops-guide.md
-```
-
-## GitHub Actions CI
-
-CI means Continuous Integration. It automatically checks code changes before they are merged, which helps catch problems early.
-
-The auth-service CI workflow lives here:
-
-```text
-.github/workflows/auth-service-ci.yml
-```
-
-It runs on pushes and pull requests to `main` and `develop`. It can also be started manually from GitHub Actions.
-
-The workflow checks:
-
-- dependency installation with `npm ci`
-- Prisma client generation and database migrations
-- formatting with `npm run format:check`
-- linting with `npm run lint`
-- tests with `npm test`
-- dependency security audit with `npm run security:audit`
-- Docker image build for auth-service
-- Trivy image scan for critical vulnerabilities
-
-PostgreSQL is included in CI as a service container because auth-service registration and login tests need a real database.
-
-Docker image build is included because Dockerfile problems should be caught before deployment work begins.
-
-Security checks are included because DevSecOps means checking dependencies and container images early, not after release.
-
-Full guide:
-
-```text
-docs/ci-guide.md
-```
-
-## GitHub Actions Security Workflow
-
-The dedicated auth-service security workflow lives here:
-
-```text
-.github/workflows/auth-service-security.yml
-```
-
-It runs on pushes and pull requests to `main` and `develop`, and it can be started manually.
-
-The workflow runs:
-
-- Gitleaks secret scanning
-- Semgrep SAST source scanning
-- npm audit dependency scanning
-- Trivy Docker image scanning
-
-This is separate from the CI workflow so security checks are easy to find and review.
+GitHub Actions runs are fully verified after pushing to GitHub.
 
 ## Docker Image Publishing
 
-The auth-service Docker image publishing workflow lives here:
-
-```text
-.github/workflows/auth-service-docker-publish.yml
-```
-
-It publishes the auth-service image to GitHub Container Registry when code is pushed to `main`, when a version tag like `v1.0.0` is pushed, or when the workflow is started manually.
-
-Published image:
+The publish workflow pushes the auth-service image to:
 
 ```text
 ghcr.io/<github-owner>/cloudguard-auth-service
 ```
 
-The workflow creates useful tags such as `latest`, `sha-<commit-sha>`, full version tags like `1.0.0`, and minor version tags like `1.0`.
+Supported tags include:
 
-Full guide:
+- `latest`
+- `sha-<commit-sha>`
+- semantic versions such as `1.0.0`
+- minor versions such as `1.0`
+
+## Deployment And Rollback
+
+Deployment Compose file:
 
 ```text
-docs/container-registry-guide.md
+docker/docker-compose.deploy.yml
 ```
 
-Stop stack:
+Deploy script:
 
 ```bash
-docker compose -f docker/docker-compose.auth.yml down
+AUTH_SERVICE_IMAGE=ghcr.io/<github-owner>/cloudguard-auth-service:latest ./scripts/deploy-auth-service.sh
 ```
+
+Rollback script:
+
+```bash
+PREVIOUS_AUTH_SERVICE_IMAGE=ghcr.io/<github-owner>/cloudguard-auth-service:sha-abc123 ./scripts/rollback-auth-service.sh
+```
+
+Deployment requires a real published GHCR image and, for the GitHub Actions deploy workflow, a configured self-hosted runner.
+
+## Final Project Status
+
+Current phase status: finalized and ready for GitHub preparation.
+
+Completed in this phase:
+
+- one working backend microservice
+- database integration
+- containerization
+- local observability stack
+- local and CI security checks
+- CI/CD planning and workflows
+- deployment and rollback foundation
+- professional documentation
+
+Future enhancements:
+
+- Kubernetes manifests
+- Helm chart
+- GitOps with Argo CD
+- Terraform infrastructure
+- SBOM generation
+- Cosign image signing
+- AIOps incident assistant
+- more microservices
+- cloud deployment
+
+## Portfolio Summary
+
+CloudGuard AI demonstrates practical DevOps engineering across application development, testing, Docker, PostgreSQL, CI/CD, DevSecOps scanning, observability, alerting, and deployment planning.

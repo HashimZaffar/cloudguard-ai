@@ -122,6 +122,22 @@ The full registry guide is:
 docs/container-registry-guide.md
 ```
 
+## CI, Publish, And Deploy Together
+
+These workflows do different jobs:
+
+- CI checks the code with formatting, linting, tests, security audit, Docker build, and Trivy scan.
+- Docker publish builds the image and pushes it to GitHub Container Registry.
+- Compose deploy pulls a selected image tag and runs it with Docker Compose.
+
+The Compose deploy workflow is manual. This keeps deployment deliberate while the project is still in the beginner local/self-hosted stage.
+
+The deployment guide is:
+
+```text
+docs/deployment-guide.md
+```
+
 ## Local Pre-Push Checklist
 
 Run these commands before pushing.
